@@ -27,3 +27,5 @@
 
 - idmgr：将整型ID和字符串ID映射，避免通过递增ID就可以遍历网站
 
+
+- remote：提供远端访问的API服务器，方便 website/admin/spider 分离
