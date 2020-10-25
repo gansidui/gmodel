@@ -7,8 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/gansidui/gmodel"
 )
 
 type APIClient struct {
@@ -78,33 +76,38 @@ func (this *APIClient) GetMaxArticleId() uint64 {
 	return maxArticleId
 }
 
-func (this *APIClient) AddArticle(tags []string, data string) (uint64, error) {
+// customArticleId 可以为空，如果为空，则服务器自动生成
+// 返回：文章ID、自定义文章ID
+func (this *APIClient) AddArticle(tags []string, data string, customArticleId string) (uint64, string, error) {
 	req := &AddArticleReq{
-		Tags: tags,
-		Data: data,
+		Tags:            tags,
+		Data:            data,
+		CustomArticleId: customArticleId,
 	}
 	reqBytes, _ := json.Marshal(req)
 
 	respBytes, err := this.post(this.getAPIAddr(APIAddArticle), bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	resp := &AddArticleResp{}
 	if err = json.Unmarshal(respBytes, resp); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	if resp.ErrCode != ErrCodeSuccess {
-		return 0, errors.New(resp.ErrMsg)
+		return 0, "", errors.New(resp.ErrMsg)
 	}
 
-	return resp.ArticleId, nil
+	return resp.ArticleId, resp.CustomArticleId, nil
 }
 
-func (this *APIClient) DeleteArticle(articleId uint64) error {
+// 文章ID随便填一个，customArticleId 优先
+func (this *APIClient) DeleteArticle(articleId uint64, customArticleId string) error {
 	req := &DeleteArticleReq{
-		ArticleId: articleId,
+		ArticleId:       articleId,
+		CustomArticleId: customArticleId,
 	}
 	reqBytes, _ := json.Marshal(req)
 
@@ -125,9 +128,10 @@ func (this *APIClient) DeleteArticle(articleId uint64) error {
 	return nil
 }
 
-func (this *APIClient) GetArticle(articleId uint64) (*gmodel.Article, error) {
+func (this *APIClient) GetArticle(articleId uint64, customArticleId string) (*RemoteArticle, error) {
 	req := &GetArticleReq{
-		ArticleId: articleId,
+		ArticleId:       articleId,
+		CustomArticleId: customArticleId,
 	}
 	reqBytes, _ := json.Marshal(req)
 
@@ -145,110 +149,115 @@ func (this *APIClient) GetArticle(articleId uint64) (*gmodel.Article, error) {
 		return nil, errors.New(resp.ErrMsg)
 	}
 
-	return resp.Article, nil
+	return resp.RemoteArticle, nil
 }
 
-func (this *APIClient) GetNextArticles(articleId uint64, n int) []*gmodel.Article {
+func (this *APIClient) GetNextArticles(articleId uint64, customArticleId string, n int) []*RemoteArticle {
 	req := &GetNextArticlesReq{
-		ArticleId: articleId,
-		N:         n,
+		ArticleId:       articleId,
+		CustomArticleId: customArticleId,
+		N:               n,
 	}
 	reqBytes, _ := json.Marshal(req)
 
 	respBytes, err := this.post(this.getAPIAddr(APIGetNextArticles), bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	resp := &GetNextArticlesResp{}
 	if err = json.Unmarshal(respBytes, resp); err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	if resp.ErrCode != ErrCodeSuccess {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
-	return resp.Articles
+	return resp.RemoteArticles
 }
 
-func (this *APIClient) GetPrevArticles(articleId uint64, n int) []*gmodel.Article {
+func (this *APIClient) GetPrevArticles(articleId uint64, customArticleId string, n int) []*RemoteArticle {
 	req := &GetPrevArticlesReq{
-		ArticleId: articleId,
-		N:         n,
+		ArticleId:       articleId,
+		CustomArticleId: customArticleId,
+		N:               n,
 	}
 	reqBytes, _ := json.Marshal(req)
 
 	respBytes, err := this.post(this.getAPIAddr(APIGetPrevArticles), bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	resp := &GetPrevArticlesResp{}
 	if err = json.Unmarshal(respBytes, resp); err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	if resp.ErrCode != ErrCodeSuccess {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
-	return resp.Articles
+	return resp.RemoteArticles
 }
 
-func (this *APIClient) GetNextArticlesByTag(tagName string, articleId uint64, n int) []*gmodel.Article {
+func (this *APIClient) GetNextArticlesByTag(tagName string, articleId uint64, customArticleId string, n int) []*RemoteArticle {
 	req := &GetNextArticlesByTagReq{}
 	req.ArticleId = articleId
+	req.CustomArticleId = customArticleId
 	req.N = n
 	req.Tag = tagName
 	reqBytes, _ := json.Marshal(req)
 
 	respBytes, err := this.post(this.getAPIAddr(APIGetNextArticlesByTag), bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	resp := &GetNextArticlesByTagResp{}
 	if err = json.Unmarshal(respBytes, resp); err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	if resp.ErrCode != ErrCodeSuccess {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
-	return resp.Articles
+	return resp.RemoteArticles
 }
 
-func (this *APIClient) GetPrevArticlesByTag(tagName string, articleId uint64, n int) []*gmodel.Article {
+func (this *APIClient) GetPrevArticlesByTag(tagName string, articleId uint64, customArticleId string, n int) []*RemoteArticle {
 	req := &GetPrevArticlesByTagReq{}
 	req.ArticleId = articleId
+	req.CustomArticleId = customArticleId
 	req.N = n
 	req.Tag = tagName
 	reqBytes, _ := json.Marshal(req)
 
 	respBytes, err := this.post(this.getAPIAddr(APIGetPrevArticlesByTag), bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	resp := &GetPrevArticlesByTagResp{}
 	if err = json.Unmarshal(respBytes, resp); err != nil {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
 	if resp.ErrCode != ErrCodeSuccess {
-		return []*gmodel.Article{}
+		return []*RemoteArticle{}
 	}
 
-	return resp.Articles
+	return resp.RemoteArticles
 }
 
-func (this *APIClient) UpdateArticle(articleId uint64, newTags []string, data string) error {
+func (this *APIClient) UpdateArticle(articleId uint64, customArticleId string, newTags []string, newData string) error {
 	req := &UpdateArticleReq{
-		ArticleId: articleId,
-		NewTags:   newTags,
-		NewData:   data,
+		ArticleId:       articleId,
+		CustomArticleId: customArticleId,
+		NewTags:         newTags,
+		NewData:         newData,
 	}
 	reqBytes, _ := json.Marshal(req)
 
@@ -269,7 +278,7 @@ func (this *APIClient) UpdateArticle(articleId uint64, newTags []string, data st
 	return nil
 }
 
-func (this *APIClient) GetTagById(id uint64) (*gmodel.Tag, error) {
+func (this *APIClient) GetTagById(id uint64) (*RemoteTag, error) {
 	req := &GetTagByIdReq{
 		TagId: id,
 	}
@@ -289,10 +298,10 @@ func (this *APIClient) GetTagById(id uint64) (*gmodel.Tag, error) {
 		return nil, errors.New(resp.ErrMsg)
 	}
 
-	return resp.Tag, nil
+	return resp.RemoteTag, nil
 }
 
-func (this *APIClient) GetTagByName(name string) (*gmodel.Tag, error) {
+func (this *APIClient) GetTagByName(name string) (*RemoteTag, error) {
 	req := &GetTagByNameReq{
 		TagName: name,
 	}
@@ -312,7 +321,7 @@ func (this *APIClient) GetTagByName(name string) (*gmodel.Tag, error) {
 		return nil, errors.New(resp.ErrMsg)
 	}
 
-	return resp.Tag, nil
+	return resp.RemoteTag, nil
 
 }
 

@@ -19,6 +19,16 @@ const (
 	APIRenameTag            = "/admin/rename-tag"
 )
 
+// CustomArticleId 优先，CustomArticleId为空时才使用 Article.Id，下同
+type RemoteArticle struct {
+	*gmodel.Article
+	CustomArticleId string `json:"custom_article_id"` // 自定义文章ID，优先级高于 Article.Id
+}
+
+type RemoteTag struct {
+	*gmodel.Tag
+}
+
 type BaseResp struct {
 	ErrCode int    `json:"errcode"`
 	ErrMsg  string `json:"errmsg"`
@@ -32,17 +42,20 @@ type GetModelInfoResp struct {
 }
 
 type AddArticleReq struct {
-	Tags []string `json:"tags"`
-	Data string   `json:"data"`
+	Tags            []string `json:"tags"`
+	Data            string   `json:"data"`
+	CustomArticleId string   `json:"custom_article_id"`
 }
 
 type AddArticleResp struct {
 	BaseResp
-	ArticleId uint64 `json:"article_id"`
+	ArticleId       uint64 `json:"article_id"`
+	CustomArticleId string `json:"custom_article_id"`
 }
 
 type DeleteArticleReq struct {
-	ArticleId uint64 `json:"article_id"`
+	ArticleId       uint64 `json:"article_id"`
+	CustomArticleId string `json:"custom_article_id"`
 }
 
 type DeleteArticleResp = BaseResp
@@ -51,17 +64,18 @@ type GetArticleReq = DeleteArticleReq
 
 type GetArticleResp struct {
 	BaseResp
-	Article *gmodel.Article `json:"article"`
+	*RemoteArticle
 }
 
 type GetNextArticlesReq struct {
-	ArticleId uint64 `json:"article_id"`
-	N         int    `json:"n"`
+	ArticleId       uint64 `json:"article_id"`
+	CustomArticleId string `json:"custom_article_id"`
+	N               int    `json:"n"`
 }
 
 type GetNextArticlesResp struct {
 	BaseResp
-	Articles []*gmodel.Article `json:"articles"`
+	RemoteArticles []*RemoteArticle `json:"remote_articles"`
 }
 
 type GetPrevArticlesReq = GetNextArticlesReq
@@ -78,9 +92,10 @@ type GetPrevArticlesByTagReq = GetNextArticlesByTagReq
 type GetPrevArticlesByTagResp = GetNextArticlesByTagResp
 
 type UpdateArticleReq struct {
-	ArticleId uint64   `json:"article_id"`
-	NewTags   []string `json:"new_tags"`
-	NewData   string   `json:"new_data"`
+	ArticleId       uint64   `json:"article_id"`
+	CustomArticleId string   `json:"custom_article_id"`
+	NewTags         []string `json:"new_tags"`
+	NewData         string   `json:"new_data"`
 }
 
 type UpdateArticleResp = BaseResp
@@ -91,7 +106,7 @@ type GetTagByIdReq struct {
 
 type GetTagByIdResp struct {
 	BaseResp
-	Tag *gmodel.Tag `json:"tag"`
+	*RemoteTag
 }
 
 type GetTagByNameReq struct {

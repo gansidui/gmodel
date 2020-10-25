@@ -258,8 +258,8 @@ func (this *GModel) GetPrevArticlesByTag(tagName string, articleId uint64, n int
 // 修改文章
 // articleId：待修改的文章ID
 // newTags：新的分类名称，可以为空，tags为空表示该文章属于未分类
-// data: 文章数据内容，不能为空
-func (this *GModel) UpdateArticle(articleId uint64, newTags []string, data string) error {
+// newData: 文章数据内容，不能为空
+func (this *GModel) UpdateArticle(articleId uint64, newTags []string, newData string) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -288,7 +288,7 @@ func (this *GModel) UpdateArticle(articleId uint64, newTags []string, data strin
 
 	// 更新文章
 	article.TagIds = tagIds
-	article.Data = data
+	article.Data = newData
 	err = this.articleMgr.Update(article)
 	if err != nil {
 		return err

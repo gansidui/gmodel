@@ -11,11 +11,13 @@ func TestRemote(t *testing.T) {
 	articleDBPath := "./article_test.db"
 	tagDBPath := "./tag_test.db"
 	indexDBPath := "./index_test.db"
+	idDBPath := "./id_test.db"
 
 	defer func() {
 		os.RemoveAll(articleDBPath)
 		os.RemoveAll(tagDBPath)
 		os.RemoveAll(indexDBPath)
+		os.RemoveAll(idDBPath)
 	}()
 
 	// 启动server
@@ -24,6 +26,7 @@ func TestRemote(t *testing.T) {
 			ArticleDBPath: articleDBPath,
 			TagDBPath:     tagDBPath,
 			IndexDBPath:   indexDBPath,
+			IdDBPath:      idDBPath,
 			ListeningAddr: ":9999",
 			UseGzip:       false,
 		}
@@ -58,19 +61,31 @@ func StartClient(t *testing.T) {
 	}
 
 	tags := []string{"tag1", "tag2", "tag3"}
-	articleId, err := gmodel.AddArticle(tags, "data_id_1")
+	articleId, customArticleId, err := gmodel.AddArticle(tags, "data_id_1", "custom_article_id")
 	if err != nil {
+		t.Fatal()
+	}
+	if articleId != 1 || customArticleId != "custom_article_id" {
 		t.Fatal()
 	}
 	if gmodel.GetTagCount() != 3 {
 		t.Fatal()
 	}
 
-	article, err := gmodel.GetArticle(articleId)
+	article, err := gmodel.GetArticle(articleId, "")
 	if err != nil {
 		t.Fatal()
 	}
 	if article.Id != 1 || articleId != 1 {
+		t.Fatal()
+	}
+
+	// test customArticleId
+	article, err = gmodel.GetArticle(0, "custom_article_id")
+	if err != nil {
+		t.Fatal()
+	}
+	if article.Id != 1 || article.CustomArticleId != "custom_article_id" {
 		t.Fatal()
 	}
 
@@ -84,7 +99,7 @@ func StartClient(t *testing.T) {
 		t.Fatal()
 	}
 
-	articleId, err = gmodel.AddArticle([]string{"tag3", "tag4"}, "data_id_2")
+	articleId, _, err = gmodel.AddArticle([]string{"tag3", "tag4"}, "data_id_2", "")
 	if articleId != 2 || err != nil {
 		t.Fatal()
 	}
@@ -92,7 +107,7 @@ func StartClient(t *testing.T) {
 		t.Fatal()
 	}
 
-	articles := gmodel.GetNextArticles(0, 2)
+	articles := gmodel.GetNextArticles(0, "", 2)
 	if len(articles) != 2 {
 		t.Fatal()
 	}
@@ -100,41 +115,41 @@ func StartClient(t *testing.T) {
 		t.Fatal()
 	}
 
-	gmodel.AddArticle([]string{"tag4", "tag2"}, "data_id_3")
+	gmodel.AddArticle([]string{"tag4", "tag2"}, "data_id_3", "")
 
-	articles = gmodel.GetNextArticlesByTag("tag2", 0, 10)
+	articles = gmodel.GetNextArticlesByTag("tag2", 0, "", 10)
 	if len(articles) != 2 {
 		t.Fatal()
 	}
 
-	articles = gmodel.GetNextArticlesByTag("tag2", 2, 10)
+	articles = gmodel.GetNextArticlesByTag("tag2", 2, "", 10)
 	if len(articles) != 1 {
 		t.Fatal()
 	}
 
-	if gmodel.UpdateArticle(1, []string{"tag2", "tag99"}, "new_data_id_1") != nil {
+	if gmodel.UpdateArticle(1, "", []string{"tag2", "tag99"}, "new_data_id_1") != nil {
 		t.Fatal()
 	}
 	if gmodel.GetTagCount() != 5 {
 		t.Fatal()
 	}
 
-	if gmodel.DeleteArticle(2) != nil {
+	if gmodel.DeleteArticle(2, "") != nil {
 		t.Fatal()
 	}
-	if gmodel.DeleteArticle(4) == nil {
+	if gmodel.DeleteArticle(4, "") == nil {
 		t.Fatal()
 	}
 	if gmodel.GetArticleCount() != 2 {
 		t.Fatal()
 	}
 
-	gmodel.AddArticle([]string{"tag222", "tag111"}, "hello")
+	gmodel.AddArticle([]string{"tag222", "tag111"}, "hello", "")
 	if gmodel.RenameTag("tag2", "tag1024") != nil {
 		t.Fatal()
 	}
 
-	articles = gmodel.GetNextArticles(0, 10)
+	articles = gmodel.GetNextArticles(0, "", 10)
 	for _, article := range articles {
 		fmt.Println(article.Id, convertTagIds(gmodel, article.TagIds), article.Data)
 	}

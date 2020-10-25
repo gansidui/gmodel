@@ -26,6 +26,13 @@ type APIServerConfig struct {
 	TagDBPath     string
 	IndexDBPath   string
 
+	// model中的文章ID都是uint64类型，需要增加字符串ID的扩展功能
+	// 保存字符串ID和整型ID的映射，也可以用于自定义ID（字符串）
+	// 如果不使用自定义ID，则随机产生一个字符串ID
+	// 这样做的原因避免ID为整数，然后导致网站被遍历抓取
+	// 用自定义ID还有一个好处，比如将文章的标题作为文章的自定义ID，自带去重效果
+	IdDBPath string
+
 	// 监听地址
 	ListeningAddr string
 
@@ -36,6 +43,7 @@ type APIServerConfig struct {
 
 type APIServer struct {
 	model   *gmodel.GModel
+	idMgr   *gmodel.IdMgr
 	useGzip bool
 }
 
@@ -45,11 +53,17 @@ func (this *APIServer) Start(config *APIServerConfig) {
 	if err := this.model.Open(config.ArticleDBPath, config.TagDBPath, config.IndexDBPath); err != nil {
 		log.Fatal(err)
 	}
+
+	this.idMgr = &gmodel.IdMgr{}
+	if err := this.idMgr.Open(config.IdDBPath); err != nil {
+		log.Fatal(err)
+	}
 	this.useGzip = config.UseGzip
 
 	// 执行退出逻辑，用于保存数据
 	defer func() {
 		this.model.Close()
+		this.idMgr.Close()
 	}()
 
 	// Gin包设置Release模式
@@ -117,11 +131,13 @@ func (this *APIServer) newHandler() *gin.Engine {
 }
 
 func (this *APIServer) getModelInfoHandler(c *gin.Context) {
-	resp := &GetModelInfoResp{
-		ArticleCount: this.model.GetArticleCount(),
-		TagCount:     this.model.GetTagCount(),
-		MaxArticleId: this.model.GetMaxArticleId(),
-	}
+	resp := &GetModelInfoResp{}
+	resp.ErrCode = ErrCodeSuccess
+	resp.ErrMsg = ErrMsgSuccess
+	resp.ArticleCount = this.model.GetArticleCount()
+	resp.TagCount = this.model.GetTagCount()
+	resp.MaxArticleId = this.model.GetMaxArticleId()
+
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -138,12 +154,40 @@ func (this *APIServer) addArticleHandler(c *gin.Context) {
 		return
 	}
 
+	// 判断自定义ID是否已经存在，如果已经存在，则返回
+	if req.CustomArticleId != "" {
+		if _, exist := this.idMgr.GetIntId(req.CustomArticleId); exist {
+			resp.ErrCode = ErrCodeFailed
+			resp.ErrMsg = "CustomArticleId is exist"
+			c.JSON(http.StatusOK, resp)
+			return
+		}
+	}
+
+	// 保存新文章
 	articleId, err := this.model.AddArticle(req.Tags, req.Data)
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
+		resp.ErrMsg = "AddArticle failed: " + err.Error()
 		c.JSON(http.StatusOK, resp)
 		return
+	}
+
+	// 自定义ID
+	if req.CustomArticleId != "" {
+		resp.CustomArticleId = req.CustomArticleId
+		if err := this.idMgr.SetIdMap(articleId, req.CustomArticleId); err != nil {
+			resp.ErrCode = ErrCodeFailed
+			resp.ErrMsg = "SetIdMap failed: " + err.Error()
+		}
+	} else {
+		customId, err := this.idMgr.AddIntId(articleId)
+		if err != nil {
+			resp.ErrCode = ErrCodeFailed
+			resp.ErrMsg = "AddIntId failed: " + err.Error()
+		} else {
+			resp.CustomArticleId = customId
+		}
 	}
 
 	resp.ArticleId = articleId
@@ -163,12 +207,16 @@ func (this *APIServer) deleteArticleHandler(c *gin.Context) {
 		return
 	}
 
-	err := this.model.DeleteArticle(req.ArticleId)
-	if err != nil {
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	if err := this.model.DeleteArticle(articleId); err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+		resp.ErrMsg = "DeleteArticle failed: " + err.Error()
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -187,15 +235,29 @@ func (this *APIServer) getArticleHandler(c *gin.Context) {
 		return
 	}
 
-	article, err := this.model.GetArticle(req.ArticleId)
-	if err != nil {
-		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+	articleId := req.ArticleId
+	customArticleId := req.CustomArticleId
+	if customArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(customArticleId); ok {
+			articleId = intId
+		}
+	} else {
+		if stringId, ok := this.idMgr.GetStringId(articleId); ok {
+			customArticleId = stringId
+		}
 	}
 
-	resp.Article = article
+	article, err := this.model.GetArticle(articleId)
+	if err != nil {
+		resp.ErrCode = ErrCodeFailed
+		resp.ErrMsg = "GetArticle failed: " + err.Error()
+	}
+
+	resp.RemoteArticle = &RemoteArticle{
+		Article:         article,
+		CustomArticleId: customArticleId,
+	}
+
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -212,7 +274,26 @@ func (this *APIServer) getNextArticlesHandler(c *gin.Context) {
 		return
 	}
 
-	resp.Articles = this.model.GetNextArticles(req.ArticleId, req.N)
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	remoteArticles := make([]*RemoteArticle, 0)
+
+	articles := this.model.GetNextArticles(articleId, req.N)
+	for _, article := range articles {
+		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
+			remoteArticles = append(remoteArticles, &RemoteArticle{
+				Article:         article,
+				CustomArticleId: stringId,
+			})
+		}
+	}
+
+	resp.RemoteArticles = remoteArticles
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -229,7 +310,26 @@ func (this *APIServer) getPrevArticlesHandler(c *gin.Context) {
 		return
 	}
 
-	resp.Articles = this.model.GetPrevArticles(req.ArticleId, req.N)
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	remoteArticles := make([]*RemoteArticle, 0)
+
+	articles := this.model.GetPrevArticles(articleId, req.N)
+	for _, article := range articles {
+		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
+			remoteArticles = append(remoteArticles, &RemoteArticle{
+				Article:         article,
+				CustomArticleId: stringId,
+			})
+		}
+	}
+
+	resp.RemoteArticles = remoteArticles
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -246,7 +346,26 @@ func (this *APIServer) getNextArticlesByTagHandler(c *gin.Context) {
 		return
 	}
 
-	resp.Articles = this.model.GetNextArticlesByTag(req.Tag, req.ArticleId, req.N)
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	remoteArticles := make([]*RemoteArticle, 0)
+
+	articles := this.model.GetNextArticlesByTag(req.Tag, articleId, req.N)
+	for _, article := range articles {
+		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
+			remoteArticles = append(remoteArticles, &RemoteArticle{
+				Article:         article,
+				CustomArticleId: stringId,
+			})
+		}
+	}
+
+	resp.RemoteArticles = remoteArticles
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -263,7 +382,26 @@ func (this *APIServer) getPrevArticlesByTagHandler(c *gin.Context) {
 		return
 	}
 
-	resp.Articles = this.model.GetPrevArticlesByTag(req.Tag, req.ArticleId, req.N)
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	remoteArticles := make([]*RemoteArticle, 0)
+
+	articles := this.model.GetPrevArticlesByTag(req.Tag, articleId, req.N)
+	for _, article := range articles {
+		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
+			remoteArticles = append(remoteArticles, &RemoteArticle{
+				Article:         article,
+				CustomArticleId: stringId,
+			})
+		}
+	}
+
+	resp.RemoteArticles = remoteArticles
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -280,12 +418,17 @@ func (this *APIServer) updateArticleHandler(c *gin.Context) {
 		return
 	}
 
-	err := this.model.UpdateArticle(req.ArticleId, req.NewTags, req.NewData)
+	articleId := req.ArticleId
+	if req.CustomArticleId != "" {
+		if intId, ok := this.idMgr.GetIntId(req.CustomArticleId); ok {
+			articleId = intId
+		}
+	}
+
+	err := this.model.UpdateArticle(articleId, req.NewTags, req.NewData)
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+		resp.ErrMsg = "UpdateArticle failed: " + err.Error()
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -307,12 +450,13 @@ func (this *APIServer) getTagByIdHandler(c *gin.Context) {
 	tag, err := this.model.GetTagById(req.TagId)
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+		resp.ErrMsg = "GetTagById failed: " + err.Error()
 	}
 
-	resp.Tag = tag
+	resp.RemoteTag = &RemoteTag{
+		Tag: tag,
+	}
+
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -332,9 +476,7 @@ func (this *APIServer) getTagByNameHandler(c *gin.Context) {
 	tag, err := this.model.GetTagByName(req.TagName)
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+		resp.ErrMsg = "GetTagByName failed: " + err.Error()
 	}
 
 	resp.Tag = tag
@@ -357,9 +499,7 @@ func (this *APIServer) renameTagHandler(c *gin.Context) {
 	err := this.model.RenameTag(req.OldName, req.NewName)
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
-		resp.ErrMsg = err.Error()
-		c.JSON(http.StatusOK, resp)
-		return
+		resp.ErrMsg = "RenameTag failed: " + err.Error()
 	}
 
 	c.JSON(http.StatusOK, resp)

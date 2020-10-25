@@ -57,22 +57,7 @@ func (this *IdMgr) AddIntId(intId uint64) (string, error) {
 	// 生成字符串ID
 	stringId := this.generateStringId()
 
-	// 保存映射
-	// str_stringId --> intId
-	err1 := this.db.Put(this.getKeyFromString(stringId), []byte(strconv.FormatUint(intId, 10)))
-
-	// int_intId --> stringId
-	err2 := this.db.Put(this.getKeyFromInt(intId), []byte(stringId))
-
-	if err1 != nil || err2 != nil {
-		// 如果有一个失败就全部删掉
-		this.db.Delete(this.getKeyFromString(stringId))
-		this.db.Delete(this.getKeyFromInt(intId))
-
-		return "", errors.New(fmt.Sprintf("AddIntId[%v] failed, err1[%v] err2[%v]", intId, err1, err2))
-	}
-
-	return stringId, nil
+	return stringId, this.setIdMap(intId, stringId)
 }
 
 // 获取整型ID对应的字符串ID
@@ -101,6 +86,32 @@ func (this *IdMgr) GetIntId(stringId string) (uint64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// 保存intId和stringId的映射
+func (this *IdMgr) SetIdMap(intId uint64, stringId string) error {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	return this.setIdMap(intId, stringId)
+}
+
+func (this *IdMgr) setIdMap(intId uint64, stringId string) error {
+	// str_stringId --> intId
+	err1 := this.db.Put(this.getKeyFromString(stringId), []byte(strconv.FormatUint(intId, 10)))
+
+	// int_intId --> stringId
+	err2 := this.db.Put(this.getKeyFromInt(intId), []byte(stringId))
+
+	if err1 != nil || err2 != nil {
+		// 如果有一个失败就全部删掉
+		this.db.Delete(this.getKeyFromString(stringId))
+		this.db.Delete(this.getKeyFromInt(intId))
+
+		return errors.New(fmt.Sprintf("AddIntId[%v] failed, err1[%v] err2[%v]", intId, err1, err2))
+	}
+
+	return nil
 }
 
 func (this *IdMgr) getKeyFromInt(intId uint64) []byte {
