@@ -253,9 +253,18 @@ func (this *APIServer) getArticleHandler(c *gin.Context) {
 		resp.ErrMsg = "GetArticle failed: " + err.Error()
 	}
 
+	// 获取分类名称
+	tagNameArray := make([]string, 0)
+	for _, tagId := range article.TagIds {
+		if tag, err := this.model.GetTagById(tagId); err == nil {
+			tagNameArray = append(tagNameArray, tag.Name)
+		}
+	}
+
 	resp.RemoteArticle = &RemoteArticle{
 		Article:         article,
 		CustomArticleId: customArticleId,
+		TagNameArray:    tagNameArray,
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -285,10 +294,21 @@ func (this *APIServer) getNextArticlesHandler(c *gin.Context) {
 
 	articles := this.model.GetNextArticles(articleId, req.N)
 	for _, article := range articles {
+
+		// 获取分类名称
+		tagNameArray := make([]string, 0)
+		for _, tagId := range article.TagIds {
+			if tag, err := this.model.GetTagById(tagId); err == nil {
+				tagNameArray = append(tagNameArray, tag.Name)
+			}
+		}
+
+		// 获取自定义文章ID
 		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
 			remoteArticles = append(remoteArticles, &RemoteArticle{
 				Article:         article,
 				CustomArticleId: stringId,
+				TagNameArray:    tagNameArray,
 			})
 		}
 	}

@@ -22,7 +22,8 @@ const (
 // CustomArticleId 优先，CustomArticleId为空时才使用 Article.Id，下同
 type RemoteArticle struct {
 	*gmodel.Article
-	CustomArticleId string `json:"custom_article_id"` // 自定义文章ID，优先级高于 Article.Id
+	CustomArticleId string   `json:"custom_article_id"` // 自定义文章ID，优先级高于 Article.Id
+	TagNameArray    []string `json:"tag_name_array"`    // 分类数组
 }
 
 type RemoteTag struct {
