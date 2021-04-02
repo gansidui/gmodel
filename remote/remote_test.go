@@ -130,7 +130,7 @@ func StartClient(t *testing.T) {
 	if gmodel.UpdateArticle(1, "", []string{"tag2", "tag99"}, "new_data_id_1") != nil {
 		t.Fatal()
 	}
-	if gmodel.GetTagCount() != 5 {
+	if gmodel.GetTagCount() != 4 {
 		t.Fatal()
 	}
 

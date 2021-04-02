@@ -50,7 +50,7 @@ func TestTag(t *testing.T) {
 		t.Fatal()
 	}
 
-	if err = mgr.Delete(""); err != nil {
+	if err = mgr.DeleteByName(""); err != nil {
 		t.Fatal()
 	}
 
@@ -67,7 +67,7 @@ func TestTag(t *testing.T) {
 		t.Fatal()
 	}
 
-	if err = mgr.Delete("tag1"); err != nil {
+	if err = mgr.DeleteByName("tag1"); err != nil {
 		t.Fatal(err)
 	}
 	if mgr.Count() != 2 {
@@ -88,6 +88,38 @@ func TestTag(t *testing.T) {
 	tag, _ = mgr.getById(2)
 	if tag.Name != "tag100" {
 		t.Fatal()
+	}
+
+	testTagId, _ := mgr.Add("tag_article_count")
+	if mgr.GetArticleCountByName("tag_article_count") != 0 {
+		t.Fatal()
+	}
+	mgr.AddArticleCountForName("tag_article_count", 1)
+	mgr.AddArticleCountForId(testTagId, 1)
+
+	if mgr.GetArticleCountByName("tag_article_count") != 2 {
+		t.Fatal()
+	}
+	if mgr.GetArticleCountById(testTagId) != 2 {
+		t.Fatal()
+	}
+
+	mgr.AddArticleCountForId(testTagId, -100)
+	if mgr.GetArticleCountById(testTagId) != 0 {
+		t.Fatal()
+	}
+
+	for i := 0; i < 100; i++ {
+		mgr.AddArticleCountForName("tag_article_count", 1)
+		if mgr.GetArticleCountByName("tag_article_count") != uint64(i)+1 {
+			t.Fatal()
+		}
+	}
+	for i := 0; i < 100; i++ {
+		mgr.AddArticleCountForId(testTagId, -1)
+		if mgr.GetArticleCountById(testTagId) != 99-uint64(i) {
+			t.Fatal()
+		}
 	}
 
 }

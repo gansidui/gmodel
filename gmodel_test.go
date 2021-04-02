@@ -42,6 +42,25 @@ func TestGModel(t *testing.T) {
 	if gmodel.GetTagCount() != 3 {
 		t.Fatal()
 	}
+	if gmodel.GetArticleCountByTag("tag2") != 1 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("tag3") != 1 {
+		t.Fatal()
+	}
+
+	if gmodel.UpdateArticle(articleId, []string{"tag1", "tag2"}, "data_id_1") != nil {
+		t.Fatal()
+	}
+	if gmodel.GetTagCount() != 2 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("tag3") != 0 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("tag2") != 1 {
+		t.Fatal()
+	}
 
 	article, err := gmodel.GetArticle(articleId)
 	if err != nil {
@@ -57,7 +76,7 @@ func TestGModel(t *testing.T) {
 			curTags = append(curTags, tag.Name)
 		}
 	}
-	if !isEqual(curTags, tags) {
+	if !isEqual(curTags, []string{"tag1", "tag2"}) {
 		t.Fatal()
 	}
 
@@ -84,15 +103,30 @@ func TestGModel(t *testing.T) {
 		t.Fatal()
 	}
 
+	if gmodel.GetArticleCountByTag("tag2") != 2 {
+		fmt.Println(gmodel.GetArticleCountByTag("tag2"))
+		t.Fatal()
+	}
+
 	articles = gmodel.GetNextArticlesByTag("tag2", 2, 10)
 	if len(articles) != 1 {
 		t.Fatal()
 	}
 
+	if gmodel.GetArticleCountByTag("tag1") != 1 {
+		t.Fatal()
+	}
 	if gmodel.UpdateArticle(1, []string{"tag2", "tag99"}, "new_data_id_1") != nil {
 		t.Fatal()
 	}
-	if gmodel.GetTagCount() != 5 {
+	if gmodel.GetArticleCountByTag("tag1") != 0 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("tag99") != 1 {
+		t.Fatal()
+	}
+
+	if gmodel.GetTagCount() != 4 {
 		t.Fatal()
 	}
 

@@ -9,8 +9,9 @@ import (
 )
 
 type Tag struct {
-	Id   uint64 `json:"id"`   // 分类ID，从1开始自增，唯一标识，不允许修改
-	Name string `json:"name"` // 分类名称，唯一标识，允许修改
+	Id           uint64 `json:"id"`            // 分类ID，从1开始自增，唯一标识，不允许修改
+	Name         string `json:"name"`          // 分类名称，唯一标识，允许修改
+	ArticleCount uint64 `json:"article_count"` // 该分类下的文章数量
 }
 
 var (
@@ -158,11 +159,23 @@ func (this *TagMgr) putTag(tag *Tag) error {
 }
 
 // 删除分类
-func (this *TagMgr) Delete(name string) error {
+func (this *TagMgr) DeleteByName(name string) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
 	tag, err := this.getByName(name)
+	if err != nil {
+		return err
+	}
+	return this.deleteTag(tag)
+}
+
+// 删除分类
+func (this *TagMgr) DeleteById(id uint64) error {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+
+	tag, err := this.getById(id)
 	if err != nil {
 		return err
 	}
@@ -196,6 +209,70 @@ func (this *TagMgr) Rename(oldName string, newName string) error {
 	// 增加新的
 	oldTag.Name = newName
 	return this.putTag(oldTag)
+}
+
+// 增加（或减少）指定分类下的文章数量
+// 返回更新后该分类下的文章数量
+func (this *TagMgr) AddArticleCountForName(name string, count int64) (uint64, error) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+
+	tag, err := this.getByName(name)
+	if err != nil {
+		return 0, err
+	}
+
+	return this.addArticleCount(tag, count)
+}
+
+// 增加（或减少）指定分类下的文章数量
+// 返回更新后该分类下的文章数量
+func (this *TagMgr) AddArticleCountForId(id uint64, count int64) (uint64, error) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+
+	tag, err := this.getById(id)
+	if err != nil {
+		return 0, err
+	}
+
+	return this.addArticleCount(tag, count)
+}
+
+func (this *TagMgr) addArticleCount(tag *Tag, count int64) (uint64, error) {
+	// TODO 不需要考虑溢出情况
+	num := int64(tag.ArticleCount)
+	num += count
+	if num < 0 {
+		num = 0
+	}
+	tag.ArticleCount = uint64(num)
+
+	return uint64(num), this.putTag(tag)
+}
+
+// 获取指定分类下的文章数量
+func (this *TagMgr) GetArticleCountByName(name string) uint64 {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	if tag, err := this.getByName(name); err == nil {
+		return tag.ArticleCount
+	}
+
+	return 0
+}
+
+// 获取指定分类下的文章数量
+func (this *TagMgr) GetArticleCountById(id uint64) uint64 {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	if tag, err := this.getById(id); err == nil {
+		return tag.ArticleCount
+	}
+
+	return 0
 }
 
 // 根据ID获取分类

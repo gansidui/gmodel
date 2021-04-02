@@ -54,6 +54,14 @@ func (this *GModel) GetArticleCount() uint64 {
 	return this.articleMgr.Count()
 }
 
+// 返回分类下的文章数量
+func (this *GModel) GetArticleCountByTag(tagName string) uint64 {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	return this.tagMgr.GetArticleCountByName(tagName)
+}
+
 // 返回分类总数
 func (this *GModel) GetTagCount() uint64 {
 	this.mutex.RLock()
@@ -87,9 +95,18 @@ func (this *GModel) AddArticle(tags []string, data string) (uint64, error) {
 		tags = []string{""}
 	}
 
-	// 增加分类
+	// 注意需要对tags去重，而且要保持tags的原有顺序
+	tagMark := make(map[string]bool)
 	tagIds := make([]uint64, 0)
+
 	for _, tag := range tags {
+		_, exist := tagMark[tag]
+		if exist {
+			continue
+		}
+		tagMark[tag] = true
+
+		// 增加分类
 		id, err := this.tagMgr.Add(tag)
 		if err == nil {
 			tagIds = append(tagIds, id)
@@ -107,6 +124,9 @@ func (this *GModel) AddArticle(tags []string, data string) (uint64, error) {
 		return 0, err
 	}
 
+	// 分类下的文章数加1
+	this.addArticleCountForTags(tagIds, 1)
+
 	// 增加索引
 	this.addIndex(tagIds, articleId)
 
@@ -123,11 +143,13 @@ func (this *GModel) DeleteArticle(articleId uint64) error {
 		return err
 	}
 
-	// TODO: 先不删除分类
 	// 删除文章
 	if err = this.articleMgr.Delete(article.Id); err != nil {
 		return err
 	}
+
+	// 分类下的文章数减1
+	this.addArticleCountForTags(article.TagIds, -1)
 
 	// 删除索引
 	this.deleteIndex(article.TagIds, article.Id)
@@ -274,14 +296,28 @@ func (this *GModel) UpdateArticle(articleId uint64, newTags []string, newData st
 		newTags = []string{""}
 	}
 
-	// 增加分类
+	// 注意需要对tags去重，而且要保持tags的原有顺序
+	tagMark := make(map[string]bool)
 	tagIds := make([]uint64, 0)
+
 	for _, tag := range newTags {
+		_, exist := tagMark[tag]
+		if exist {
+			continue
+		}
+		tagMark[tag] = true
+
+		// 增加分类
 		id, err := this.tagMgr.Add(tag)
 		if err == nil {
 			tagIds = append(tagIds, id)
 		}
 	}
+
+	// 先将新分类下的文章数加1，再将旧分类下的文章数减1，
+	// 一定要按这个顺序，因为在减1的时候可能会删掉tag
+	this.addArticleCountForTags(tagIds, 1)
+	this.addArticleCountForTags(article.TagIds, -1)
 
 	// 删掉旧索引
 	this.deleteIndex(article.TagIds, articleId)
@@ -322,6 +358,18 @@ func (this *GModel) RenameTag(oldName, newName string) error {
 	defer this.mutex.Unlock()
 
 	return this.tagMgr.Rename(oldName, newName)
+}
+
+// 修改分类下的文章数量
+func (this *GModel) addArticleCountForTags(tagIds []uint64, count int64) {
+	for _, tagId := range tagIds {
+		this.tagMgr.AddArticleCountForId(tagId, count)
+
+		// 删除文章数为0的分类
+		if count < 0 && this.tagMgr.GetArticleCountById(tagId) == 0 {
+			this.tagMgr.DeleteById(tagId)
+		}
+	}
 }
 
 // 增加索引
