@@ -17,6 +17,7 @@ const (
 	APIGetTagById           = "/admin/get-tag-by-id"
 	APIGetTagByName         = "/admin/get-tag-by-name"
 	APIRenameTag            = "/admin/rename-tag"
+	APIGetArticleCountByTag = "/admin/get-article-count-by-tag"
 )
 
 // CustomArticleId 优先，CustomArticleId为空时才使用 Article.Id，下同
@@ -122,3 +123,12 @@ type RenameTagReq struct {
 }
 
 type RenameTagResp = BaseResp
+
+type GetArticleCountByTagReq struct {
+	TagName string `json:"tag_name"`
+}
+
+type GetArticleCountByTagResp struct {
+	BaseResp
+	ArticleCount uint64 `json:"article_count"`
+}

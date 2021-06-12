@@ -348,3 +348,26 @@ func (this *APIClient) RenameTag(oldName, newName string) error {
 
 	return nil
 }
+
+func (this *APIClient) GetArticleCountByTag(tagName string) uint64 {
+	req := &GetArticleCountByTagReq{
+		TagName: tagName,
+	}
+	reqBytes, _ := json.Marshal(req)
+
+	respBytes, err := this.post(this.getAPIAddr(APIGetArticleCountByTag), bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return 0
+	}
+
+	resp := &GetArticleCountByTagResp{}
+	if err = json.Unmarshal(respBytes, resp); err != nil {
+		return 0
+	}
+
+	if resp.ErrCode != ErrCodeSuccess {
+		return 0
+	}
+
+	return resp.ArticleCount
+}

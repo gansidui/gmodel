@@ -71,6 +71,15 @@ func StartClient(t *testing.T) {
 	if gmodel.GetTagCount() != 3 {
 		t.Fatal()
 	}
+	if gmodel.GetArticleCountByTag("tag2") != 1 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("tag3") != 1 {
+		t.Fatal()
+	}
+	if gmodel.GetArticleCountByTag("null") != 0 {
+		t.Fatal()
+	}
 
 	article, err := gmodel.GetArticle(articleId, "")
 	if err != nil {

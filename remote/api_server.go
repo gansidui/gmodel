@@ -126,6 +126,7 @@ func (this *APIServer) newHandler() *gin.Engine {
 	router.POST(APIGetTagById, this.getTagByIdHandler)
 	router.POST(APIGetTagByName, this.getTagByNameHandler)
 	router.POST(APIRenameTag, this.renameTagHandler)
+	router.POST(APIGetArticleCountByTag, this.getArticleCountByTagHandler)
 
 	return router
 }
@@ -522,5 +523,22 @@ func (this *APIServer) renameTagHandler(c *gin.Context) {
 		resp.ErrMsg = "RenameTag failed: " + err.Error()
 	}
 
+	c.JSON(http.StatusOK, resp)
+}
+
+func (this *APIServer) getArticleCountByTagHandler(c *gin.Context) {
+	resp := &GetArticleCountByTagResp{}
+	resp.ErrCode = ErrCodeSuccess
+	resp.ErrMsg = ErrMsgSuccess
+
+	var req GetArticleCountByTagReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.ErrCode = ErrCodeFailed
+		resp.ErrMsg = err.Error()
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+
+	resp.ArticleCount = this.model.GetArticleCountByTag(req.TagName)
 	c.JSON(http.StatusOK, resp)
 }
