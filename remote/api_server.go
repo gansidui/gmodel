@@ -295,7 +295,6 @@ func (this *APIServer) getNextArticlesHandler(c *gin.Context) {
 
 	articles := this.model.GetNextArticles(articleId, req.N)
 	for _, article := range articles {
-
 		// 获取分类名称
 		tagNameArray := make([]string, 0)
 		for _, tagId := range article.TagIds {
@@ -342,10 +341,20 @@ func (this *APIServer) getPrevArticlesHandler(c *gin.Context) {
 
 	articles := this.model.GetPrevArticles(articleId, req.N)
 	for _, article := range articles {
+		// 获取分类名称
+		tagNameArray := make([]string, 0)
+		for _, tagId := range article.TagIds {
+			if tag, err := this.model.GetTagById(tagId); err == nil {
+				tagNameArray = append(tagNameArray, tag.Name)
+			}
+		}
+
+		// 获取自定义文章ID
 		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
 			remoteArticles = append(remoteArticles, &RemoteArticle{
 				Article:         article,
 				CustomArticleId: stringId,
+				TagNameArray:    tagNameArray,
 			})
 		}
 	}
@@ -378,10 +387,20 @@ func (this *APIServer) getNextArticlesByTagHandler(c *gin.Context) {
 
 	articles := this.model.GetNextArticlesByTag(req.Tag, articleId, req.N)
 	for _, article := range articles {
+		// 获取分类名称
+		tagNameArray := make([]string, 0)
+		for _, tagId := range article.TagIds {
+			if tag, err := this.model.GetTagById(tagId); err == nil {
+				tagNameArray = append(tagNameArray, tag.Name)
+			}
+		}
+
+		// 获取自定义文章ID
 		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
 			remoteArticles = append(remoteArticles, &RemoteArticle{
 				Article:         article,
 				CustomArticleId: stringId,
+				TagNameArray:    tagNameArray,
 			})
 		}
 	}
@@ -414,10 +433,20 @@ func (this *APIServer) getPrevArticlesByTagHandler(c *gin.Context) {
 
 	articles := this.model.GetPrevArticlesByTag(req.Tag, articleId, req.N)
 	for _, article := range articles {
+		// 获取分类名称
+		tagNameArray := make([]string, 0)
+		for _, tagId := range article.TagIds {
+			if tag, err := this.model.GetTagById(tagId); err == nil {
+				tagNameArray = append(tagNameArray, tag.Name)
+			}
+		}
+
+		// 获取自定义文章ID
 		if stringId, ok := this.idMgr.GetStringId(article.Id); ok {
 			remoteArticles = append(remoteArticles, &RemoteArticle{
 				Article:         article,
 				CustomArticleId: stringId,
+				TagNameArray:    tagNameArray,
 			})
 		}
 	}
