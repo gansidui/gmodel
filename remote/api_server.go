@@ -252,6 +252,8 @@ func (this *APIServer) getArticleHandler(c *gin.Context) {
 	if err != nil {
 		resp.ErrCode = ErrCodeFailed
 		resp.ErrMsg = "GetArticle failed: " + err.Error()
+		c.JSON(http.StatusOK, resp)
+		return
 	}
 
 	// 获取分类名称
