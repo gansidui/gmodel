@@ -293,6 +293,41 @@
 }
 ```
 
+## 获取指定分类后面的N个分类
+
+/admin/get-next-tags
+
+`request`
+```
+{
+    "tag_name": "tag1",
+    "n": 1
+}
+
+```
+
+`response`
+```
+{
+    "errcode": 0,
+    "errmsg": "success",
+    "remote_tags": [
+        {
+            "id": 2,
+            "name": "tag2",
+            "article_count": 100
+        }
+    ]
+}
+
+```
+
+## 获取指定分类前面的N个分类
+
+/admin/get-prev-tags
+
+参考前面
+
 
 ## 修改分类名字
 
