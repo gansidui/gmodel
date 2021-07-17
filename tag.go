@@ -36,12 +36,29 @@ func (this *TagMgr) Close() error {
 	return this.db.Close()
 }
 
+// 返回指定分类的后N个分类（不包括当前分类）
+// 如果分类不存在，则表示获取最旧的N个分类
+func (this *TagMgr) NextByName(name string, n int) []*Tag {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	var id uint64 = 0
+	if tag, err := this.getByName(name); err == nil {
+		id = tag.Id
+	}
+
+	return this.next(id, n)
+}
+
 // 返回指定分类ID的后N个分类（不包括当前id）
 // 如果id等于0，则表示获取最旧的N个分类
 func (this *TagMgr) Next(id uint64, n int) []*Tag {
 	this.mutex.RLock()
 	defer this.mutex.RUnlock()
+	return this.next(id, n)
+}
 
+func (this *TagMgr) next(id uint64, n int) []*Tag {
 	tags := make([]*Tag, 0)
 	if n == 0 || id >= this.db.CurrentSequence() {
 		return tags
@@ -67,12 +84,29 @@ func (this *TagMgr) Next(id uint64, n int) []*Tag {
 	return tags
 }
 
+// 返回指定分类的前N个分类（不包括当前分类）
+// 如果分类不存在，则表示获取最新的N个分类
+func (this *TagMgr) PrevByName(name string, n int) []*Tag {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	var id uint64 = this.db.CurrentSequence() + 1
+	if tag, err := this.getByName(name); err == nil {
+		id = tag.Id
+	}
+
+	return this.prev(id, n)
+}
+
 // 返回指定分类ID的前N个分类（不包括当前id）
 // 如果id大于CurrentSequence，则表示获取最新的N个分类
 func (this *TagMgr) Prev(id uint64, n int) []*Tag {
 	this.mutex.RLock()
 	defer this.mutex.RUnlock()
+	return this.prev(id, n)
+}
 
+func (this *TagMgr) prev(id uint64, n int) []*Tag {
 	tags := make([]*Tag, 0)
 	if n == 0 || id <= 1 {
 		return tags

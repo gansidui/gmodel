@@ -16,6 +16,8 @@ const (
 	APIUpdateArticle        = "/admin/update-article"
 	APIGetTagById           = "/admin/get-tag-by-id"
 	APIGetTagByName         = "/admin/get-tag-by-name"
+	APIGetNextTags          = "/admin/get-next-tags"
+	APIGetPrevTags          = "/admin/get-prev-tags"
 	APIRenameTag            = "/admin/rename-tag"
 	APIGetArticleCountByTag = "/admin/get-article-count-by-tag"
 )
@@ -116,6 +118,19 @@ type GetTagByNameReq struct {
 }
 
 type GetTagByNameResp = GetTagByIdResp
+
+type GetNextTagsReq struct {
+	TagName string `json:"tag_name"`
+	N       int    `json:"n"`
+}
+
+type GetNextTagsResp struct {
+	BaseResp
+	RemoteTags []*RemoteTag `json:"remote_tags"`
+}
+
+type GetPrevTagsReq = GetNextTagsReq
+type GetPrevTagsResp = GetNextTagsResp
 
 type RenameTagReq struct {
 	OldName string `json:"old_name"`

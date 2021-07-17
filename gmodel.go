@@ -352,6 +352,24 @@ func (this *GModel) GetTagByName(name string) (*Tag, error) {
 	return this.tagMgr.GetByName(name)
 }
 
+// 返回指定分类的后N个分类（不包括当前分类）
+// 如果分类不存在，则表示获取最旧的N个分类
+func (this *GModel) GetNextTags(name string, n int) []*Tag {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	return this.tagMgr.NextByName(name, n)
+}
+
+// 返回指定分类的前N个分类（不包括当前分类）
+// 如果分类不存在，则表示获取最新的N个分类
+func (this *GModel) GetPrevTags(name string, n int) []*Tag {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+
+	return this.tagMgr.PrevByName(name, n)
+}
+
 // 修改分类名称
 func (this *GModel) RenameTag(oldName, newName string) error {
 	this.mutex.Lock()

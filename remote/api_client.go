@@ -322,7 +322,54 @@ func (this *APIClient) GetTagByName(name string) (*RemoteTag, error) {
 	}
 
 	return resp.RemoteTag, nil
+}
 
+func (this *APIClient) GetNextTags(tagName string, n int) []*RemoteTag {
+	req := &GetNextTagsReq{
+		TagName: tagName,
+		N:       n,
+	}
+	reqBytes, _ := json.Marshal(req)
+
+	respBytes, err := this.post(this.getAPIAddr(APIGetNextTags), bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return []*RemoteTag{}
+	}
+
+	resp := &GetNextTagsResp{}
+	if err = json.Unmarshal(respBytes, resp); err != nil {
+		return []*RemoteTag{}
+	}
+
+	if resp.ErrCode != ErrCodeSuccess {
+		return []*RemoteTag{}
+	}
+
+	return resp.RemoteTags
+}
+
+func (this *APIClient) GetPrevTags(tagName string, n int) []*RemoteTag {
+	req := &GetPrevTagsReq{
+		TagName: tagName,
+		N:       n,
+	}
+	reqBytes, _ := json.Marshal(req)
+
+	respBytes, err := this.post(this.getAPIAddr(APIGetPrevTags), bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return []*RemoteTag{}
+	}
+
+	resp := &GetPrevTagsResp{}
+	if err = json.Unmarshal(respBytes, resp); err != nil {
+		return []*RemoteTag{}
+	}
+
+	if resp.ErrCode != ErrCodeSuccess {
+		return []*RemoteTag{}
+	}
+
+	return resp.RemoteTags
 }
 
 func (this *APIClient) RenameTag(oldName, newName string) error {

@@ -175,6 +175,14 @@ func TestTagId(t *testing.T) {
 		t.Fatal()
 	}
 
+	tags = mgr.NextByName("1", 2)
+	if tags[0].Id != uint64(2) || tags[1].Id != uint64(3) {
+		t.Fatal()
+	}
+	if tags[0].Name != "2" || tags[1].Name != "3" {
+		t.Fatal()
+	}
+
 	tags = mgr.Next(10000, 2)
 	if len(tags) != 0 {
 		t.Fatal()
@@ -192,6 +200,12 @@ func TestTagId(t *testing.T) {
 	if len(tags) != 10 {
 		t.Fatal()
 	}
+	for i := 1; i <= len(tags); i++ {
+		if tags[i-1].Id != 11-uint64(i) {
+			t.Fatal()
+		}
+	}
+	tags = mgr.PrevByName("11", 10)
 	for i := 1; i <= len(tags); i++ {
 		if tags[i-1].Id != 11-uint64(i) {
 			t.Fatal()

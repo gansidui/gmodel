@@ -125,6 +125,8 @@ func (this *APIServer) newHandler() *gin.Engine {
 	router.POST(APIUpdateArticle, this.updateArticleHandler)
 	router.POST(APIGetTagById, this.getTagByIdHandler)
 	router.POST(APIGetTagByName, this.getTagByNameHandler)
+	router.POST(APIGetNextTags, this.getNextTagsHandler)
+	router.POST(APIGetPrevTags, this.getPrevTagsHandler)
 	router.POST(APIRenameTag, this.renameTagHandler)
 	router.POST(APIGetArticleCountByTag, this.getArticleCountByTagHandler)
 
@@ -532,6 +534,58 @@ func (this *APIServer) getTagByNameHandler(c *gin.Context) {
 	}
 
 	resp.Tag = tag
+	c.JSON(http.StatusOK, resp)
+}
+
+func (this *APIServer) getNextTagsHandler(c *gin.Context) {
+	resp := &GetNextTagsResp{}
+	resp.ErrCode = ErrCodeSuccess
+	resp.ErrMsg = ErrMsgSuccess
+
+	var req GetNextTagsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.ErrCode = ErrCodeFailed
+		resp.ErrMsg = err.Error()
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+
+	remoteTags := make([]*RemoteTag, 0)
+
+	tags := this.model.GetNextTags(req.TagName, req.N)
+	for _, tag := range tags {
+		remoteTags = append(remoteTags, &RemoteTag{
+			Tag: tag,
+		})
+	}
+
+	resp.RemoteTags = remoteTags
+	c.JSON(http.StatusOK, resp)
+}
+
+func (this *APIServer) getPrevTagsHandler(c *gin.Context) {
+	resp := &GetPrevTagsResp{}
+	resp.ErrCode = ErrCodeSuccess
+	resp.ErrMsg = ErrMsgSuccess
+
+	var req GetPrevTagsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.ErrCode = ErrCodeFailed
+		resp.ErrMsg = err.Error()
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+
+	remoteTags := make([]*RemoteTag, 0)
+
+	tags := this.model.GetPrevTags(req.TagName, req.N)
+	for _, tag := range tags {
+		remoteTags = append(remoteTags, &RemoteTag{
+			Tag: tag,
+		})
+	}
+
+	resp.RemoteTags = remoteTags
 	c.JSON(http.StatusOK, resp)
 }
 

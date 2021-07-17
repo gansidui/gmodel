@@ -81,6 +81,31 @@ func StartClient(t *testing.T) {
 		t.Fatal()
 	}
 
+	tagArray := gmodel.GetNextTags("", 1)
+	if tagArray[0].Name != "tag1" {
+		t.Fatal()
+	}
+	tagArray = gmodel.GetNextTags("tag1", 2)
+	if tagArray[0].Name != "tag2" || tagArray[1].Name != "tag3" {
+		t.Fatal()
+	}
+	tagArray = gmodel.GetNextTags("tag3", 1)
+	if len(tagArray) != 0 {
+		t.Fatal()
+	}
+	tagArray = gmodel.GetPrevTags("", 2)
+	if tagArray[0].Name != "tag3" || tagArray[1].Name != "tag2" {
+		t.Fatal()
+	}
+	tagArray = gmodel.GetPrevTags("tag2", 1)
+	if tagArray[0].Name != "tag1" {
+		t.Fatal()
+	}
+	tagArray = gmodel.GetPrevTags("", 1)
+	if tagArray[0].Name != "tag3" {
+		t.Fatal()
+	}
+
 	article, err := gmodel.GetArticle(articleId, "")
 	if err != nil {
 		t.Fatal()
